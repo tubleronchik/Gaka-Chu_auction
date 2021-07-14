@@ -9,21 +9,16 @@ const Web3ProviderEngine = require("web3-provider-engine");
 const MNEMONIC = process.env.MNEMONIC;
 const NODE_API_KEY = process.env.INFURA_KEY || process.env.ALCHEMY_KEY;
 const isInfura = !!process.env.INFURA_KEY;
-const FACTORY_CONTRACT_ADDRESS = process.env.FACTORY_CONTRACT_ADDRESS;
 const NFT_CONTRACT_ADDRESS = process.env.NFT_CONTRACT_ADDRESS;
 const OWNER_ADDRESS = process.env.OWNER_ADDRESS;
 const NETWORK = process.env.NETWORK;
+const INFURA_KEY = process.env.INFURA_KEY
 const API_KEY = process.env.API_KEY || ""; // API key is optional but useful if you're doing a high volume of requests.
 
 if (!MNEMONIC || !NODE_API_KEY || !NETWORK || !OWNER_ADDRESS) {
   console.error(
     "Please set a mnemonic, Alchemy/Infura key, owner, network, API key, nft contract, and factory contract address."
   );
-  return;
-}
-
-if (!FACTORY_CONTRACT_ADDRESS && !NFT_CONTRACT_ADDRESS) {
-  console.error("Please either set a factory or NFT contract address.");
   return;
 }
 
@@ -37,7 +32,7 @@ const network =
   NETWORK === "mainnet" || NETWORK === "live" ? "mainnet" : "rinkeby";
 const infuraRpcSubprovider = new RPCSubprovider({
   rpcUrl: isInfura
-    ? "https://" + network + ".infura.io/v3/" + NODE_API_KEY
+    ? INFURA_KEY
     : "https://eth-" + network + ".alchemyapi.io/v2/" + NODE_API_KEY,
 });
 
@@ -57,60 +52,35 @@ const seaport = new OpenSeaPort(
   },
   (arg) => console.log(arg)
 );
-
+const expirationTime = Math.round(Date.now() / 1000 + 60 * 60 * 24)
 async function main() {
-  // Example: simple fixed-price sale of an item owned by a user.
-  console.log("Auctioning an item for a fixed price...");
-  const fixedPriceSellOrder = await seaport.createSellOrder({
-    asset: {
-      tokenId: "1",
-      tokenAddress: NFT_CONTRACT_ADDRESS,
-    },
-    startAmount: 0.05,
-    expirationTime: 0,
-    accountAddress: OWNER_ADDRESS,
-  });
-  console.log(
-    `Successfully created a fixed-price sell order! ${fixedPriceSellOrder.asset.openseaLink}\n`
-  );
-
-  // // Example: Dutch auction.
-  console.log("Dutch auctioning an item...");
-  const expirationTime = Math.round(Date.now() / 1000 + 60 * 60 * 24);
-  const dutchAuctionSellOrder = await seaport.createSellOrder({
-    asset: {
-      tokenId: "2",
-      tokenAddress: NFT_CONTRACT_ADDRESS,
-    },
-    startAmount: 0.05,
-    endAmount: 0.01,
-    expirationTime: expirationTime,
-    accountAddress: OWNER_ADDRESS,
-  });
-  console.log(
-    `Successfully created a dutch auction sell order! ${dutchAuctionSellOrder.asset.openseaLink}\n`
-  );
-
   // Example: English auction.
   console.log("English auctioning an item in DAI...");
   const wethAddress =
     NETWORK === "mainnet" || NETWORK === "live"
       ? "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
       : "0xc778417e063141139fce010982780140aa0cd5ab";
-  const englishAuctionSellOrder = await seaport.createSellOrder({
-    asset: {
-      tokenId: "3",
-      tokenAddress: NFT_CONTRACT_ADDRESS,
-    },
-    startAmount: 0.03,
-    expirationTime: expirationTime,
-    waitForHighestBid: true,
-    paymentTokenAddress: wethAddress,
-    accountAddress: OWNER_ADDRESS,
-  });
-  console.log(
+
+  try {
+    const englishAuctionSellOrder = seaport.createSellOrder({
+      asset: {
+        tokenId: '67',
+        tokenAddress: NFT_CONTRACT_ADDRESS,
+      },
+      startAmount: 0.0001,
+      expirationTime: expirationTime,
+      waitForHighestBid: true,
+      paymentTokenAddress: wethAddress,
+      accountAddress: OWNER_ADDRESS,
+      englishAuctionReservePrice: 0.0001
+    })
+    await new Promise(r => setTimeout(r, 2000))
+    console.log(englishAuctionSellOrder)
+    console.log(
     `Successfully created an English auction sell order! ${englishAuctionSellOrder.asset.openseaLink}\n`
   );
+  } catch(e) {
+    console.log(e)
+  }
 }
-
-main();
+main()
